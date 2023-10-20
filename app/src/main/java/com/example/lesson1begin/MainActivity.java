@@ -10,10 +10,12 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Stack;
 
 public class MainActivity extends AppCompatActivity {
     //private EditText txtInfo; // init property for some purpose
     private TextView txtOutputOperation;
+    HashMap<String, Integer> precedence = new HashMap<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -21,7 +23,10 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         //txtInfo = findViewById(R.id.txtInfo); // get object by id
         txtOutputOperation = findViewById(R.id.txtOutputOperation);
-        txtOutputOperation.setText("Hello, World!");
+        precedence.put("+", 1);
+        precedence.put("-", 1);
+        precedence.put("*", 2);
+        precedence.put("/", 2);
     }
 
 //    public void OnClickHandler(View view) {
@@ -184,14 +189,85 @@ public class MainActivity extends AppCompatActivity {
         String str = (String)txtOutputOperation.getText();
         if (str.isEmpty())
             return;
-        HashMap<Character, Integer> operators = new HashMap<Character, Integer>();
-        for (Integer i = 0; i < str.length(); i++) {
-            char character = str.charAt(i);
-            if (!Character.isDigit(character) && character != '.') {
-                if (character != '-' && i > 0)
-                operators.put(character, i);
+
+        double result = evaluateExpression(str);
+        txtOutputOperation.setText(String.format("%s", result));
+
+//        HashMap<Character, Integer> operators = new HashMap<Character, Integer>();
+//        for (Integer i = 0; i < str.length(); i++) {
+//            char character = str.charAt(i);
+//            if (!Character.isDigit(character) && character != '.') {
+//                if (character == '-' && (i == 0 || (!Character.isDigit(str.charAt(i - 1)) && str.charAt(i - 1) != '.')))
+//                    continue;
+//                operators.put(character, i);
+//            }
+//        }
+        Log.d("my-tag", "-----btn_Equals click-----");
+    }
+
+    public double evaluateExpression(String expression) {
+        // Розбити вираз на операнди та оператори
+        String[] tokens = expression.split("(?<=\\d)(?=\\D)|(?<=\\D)(?=\\d)");
+
+        // Створити стеки для операндів і операторів
+        Stack<Double> operands = new Stack<>();
+        Stack<String> operators = new Stack<>();
+
+        // Визначити пріорітетність операцій
+        HashMap<String, Integer> precedence = new HashMap<>();
+        precedence.put("+", 1);
+        precedence.put("-", 1);
+        precedence.put("*", 2);
+        precedence.put("/", 2);
+
+        // Пройтися по всіх токенах
+        for (String token : tokens) {
+            if (token.matches("\\d+(\\.\\d+)?")) {
+                // Якщо це число, додати його до стеку операндів
+                operands.push(Double.parseDouble(token));
+            } else if (token.matches("[+\\-*/]")) {
+                // Якщо це оператор, обробити його пріорітетність
+                while (!operators.isEmpty() && precedence.get(operators.peek()) >= precedence.get(token)) {
+                    double b = operands.pop();
+                    double a = operands.pop();
+                    String operator = operators.pop();
+                    double result = performOperation(a, b, operator);
+                    operands.push(result);
+                }
+                operators.push(token);
             }
         }
-        Log.d("my-tag", "-----btn_Equals click-----");
+
+        // Виконати решту операцій, які залишились у стеках
+        while (!operators.isEmpty()) {
+            double b = operands.pop();
+            double a = operands.pop();
+            String operator = operators.pop();
+            double result = performOperation(a, b, operator);
+            operands.push(result);
+        }
+
+        // Результат знаходиться на вершині стеку operands
+        return operands.pop();
+    }
+
+    private double performOperation(double a, double b, String operator) {
+        switch (operator) {
+            case "+":
+                return a + b;
+            case "-":
+                return a - b;
+            case "*":
+                return a * b;
+            case "/":
+                if (b != 0) {
+                    return a / b;
+                } else {
+                    // Обробка помилки ділення на нуль
+                    throw new ArithmeticException("Ділення на нуль");
+                }
+            default:
+                throw new IllegalArgumentException("Невідомий оператор: " + operator);
+        }
     }
 }
